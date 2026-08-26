@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Special Wish 💕</title>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #ff4d6d;
+    --bg-start: #ffe4ec;
+    --bg-end: #fff0f5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(160deg, var(--bg-start), var(--bg-end));
+    font-family: 'Poppins', sans-serif;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 30px;
+    width: 100%;
+    max-width: 500px;
+    z-index: 5;
+  }
+  .screen.active { display: flex; animation: fadeIn 0.8s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+  h1.script {
+    font-family: 'Great Vibes', cursive;
+    font-size: 3rem;
+    color: var(--primary);
+    margin-bottom: 15px;
+  }
+  p.message { font-size: 1.1rem; color: #7a2e42; line-height: 1.6; margin-bottom: 25px; }
+
+  /* Envelope */
+  .envelope {
+    width: 220px;
+    height: 150px;
+    background: var(--primary);
+    border-radius: 8px;
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(255,77,109,0.4);
+    transition: transform 0.3s;
+  }
+  .envelope:hover { transform: scale(1.05); }
+  .envelope::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    border-left: 110px solid transparent;
+    border-right: 110px solid transparent;
+    border-top: 90px solid #ff8fa3;
+  }
+  .envelope-heart {
+    position: absolute;
+    bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.8rem;
+  }
+  .tap-hint { margin-top: 20px; color: #b23a52; font-size: 0.9rem; }
+
+  /* Buttons */
+  .btn {
+    padding: 14px 34px;
+    border: none;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 10px;
+    transition: all 0.25s ease;
+  }
+  .btn-yes {
+    background: linear-gradient(135deg, #ff4d6d, #ff8fa3);
+    color: white;
+    box-shadow: 0 6px 18px rgba(255,77,109,0.5);
+  }
+  .btn-no {
+    background: white;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    position: relative;
+  }
+  .btn-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; position: relative; height: 100px; }
+
+  .guilt-text { min-height: 24px; color: #b23a52; font-size: 0.95rem; margin-top: 10px; }
+
+  /* Floating hearts */
+  .heart {
+    position: fixed;
+    bottom: -50px;
+    font-size: 1.5rem;
+    color: var(--primary);
+    opacity: 0.7;
+    animation: floatUp linear infinite;
+    z-index: 1;
+    pointer-events: none;
+  }
+  @keyframes floatUp {
+    to { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
+  }
+
+  /* Confetti */
+  .confetti {
+    position: fixed;
+    top: -20px;
+    width: 8px; height: 14px;
+    z-index: 4;
+    pointer-events: none;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0.8; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- 🎀 CONFIG BLOCK — edit these values per client -->
+<!-- ============================================ -->
+<script>
+const CONFIG = {
+  senderName: "Zeehan",
+  recipientName: "EME",
+
+  birthdayHeading: "Happy Birthday, EMA!🥳🎂",
+  birthdayMessage: "Happy Birthday, my little Eme!I hope your day is as beautiful as your smile and as special as you are to me. May you always have a reason to smile, laugh, and feel loved! 💕",
+
+  questionText: "Will you marry me?🥺💍",
+  yesButtonText: "Yes 💖",
+  noButtonText: "No",
+
+  noButtonBehavior: {
+    dodgeOnHover: true,
+    shrinkEachClick: true,
+    growYesButton: true,
+    teleportAfterAttempts: 4,
+    disableAfterAttempts: 6,
+    guiltMessages: [
+      "Are you sure?🥺 ",
+      "Really? 😢",
+      "Try again? 🙈",
+      "Please? 🙏",
+      "Think twice𓍢ִ໋🌷͙֒",
+      "Pretty please? 🥹"
+    ],
+  },
+
+  celebrationHeading: "Yay! 🎉",
+  celebrationMessage: "You just made me the happiest person alive! I love you, EMA! 💕",
+
+  confettiColors: ["#ff4d6d", "#ff8fa3", "#ffffff", "#ffb3c6"],
+};
+</script>
+
+<!-- Floating hearts background -->
+<div id="heartsBg"></div>
+
+<!-- Screen 1: Envelope -->
+<div class="screen active" id="screen1">
+  <div class="envelope" id="envelope">
+    <span class="envelope-heart">💌</span>
+  </div>
+  <p class="tap-hint">Im not done yet, i've to tell you something special✨</p>
+</div>
+
+<!-- Screen 2: Birthday -->
+<div class="screen" id="screen2">
+  <h1 class="script" id="birthdayHeading"></h1>
+  <p class="message" id="birthdayMessage"></p>
+  <button class="btn btn-yes" onclick="goTo('screen3')">Next 𓍢ִ໋🌷͙֒💕</button>
+</div>
+
+<!-- Screen 3: The Question -->
+<div class="screen" id="screen3">
+  <h1 class="script" id="questionText"></h1>
+  <div class="btn-row">
+    <button class="btn btn-yes" id="yesBtn" onclick="goTo('screen4')"></button>
+    <button class="btn btn-no" id="noBtn"></button>
+  </div>
+  <p class="guilt-text" id="guiltText"></p>
+</div>
+
+<!-- Screen 4: Celebration -->
+<div class="screen" id="screen4">
+  <h1 class="script" id="celebrationHeading"></h1>
+  <p class="message" id="celebrationMessage"></p>
+  <div style="font-size:2.5rem;">🫶💖🎉🦋💍🎉💖🫰</div>
+</div>
+
+<script>
+  // ---------- Populate content from CONFIG ----------
+  document.getElementById('birthdayHeading').textContent = CONFIG.birthdayHeading;
+  document.getElementById('birthdayMessage').textContent = CONFIG.birthdayMessage;
+  document.getElementById('questionText').textContent = CONFIG.questionText;
+  document.getElementById('yesBtn').textContent = CONFIG.yesButtonText;
+  document.getElementById('noBtn').textContent = CONFIG.noButtonText;
+  document.getElementById('celebrationHeading').textContent = CONFIG.celebrationHeading;
+  document.getElementById('celebrationMessage').textContent = CONFIG.celebrationMessage;
+
+  // ---------- Screen navigation ----------
+  function goTo(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (id === 'screen2' || id === 'screen4') launchConfetti();
+  }
+
+  document.getElementById('envelope').addEventListener('click', () => goTo('screen2'));
+
+  // ---------- Floating hearts background ----------
+  function startFloatingHearts() {
+    setInterval(() => {
+      const heart = document.createElement('div');
+      heart.className = 'heart';
+      heart.textContent = ['💕','💖','💗','❤️'][Math.floor(Math.random()*4)];
+      heart.style.left = Math.random() * 100 + 'vw';
+      heart.style.fontSize = (1 + Math.random()*1.5) + 'rem';
+      const duration = 6 + Math.random() * 6;
+      heart.style.animationDuration = duration + 's';
+      document.body.appendChild(heart);
+      setTimeout(() => heart.remove(), duration * 1000);
+    }, 600);
+  }
+  startFloatingHearts();
+
+  // ---------- Confetti burst ----------
+  function launchConfetti() {
+    for (let i = 0; i < 60; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = CONFIG.confettiColors[Math.floor(Math.random()*CONFIG.confettiColors.length)];
+      c.style.animationDuration = (2 + Math.random()*2) + 's';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 4500);
+    }
+  }
+
+  // ---------- "No" button dodge/shrink logic ----------
+  const noBtn = document.getElementById('noBtn');
+  const yesBtn = document.getElementById('yesBtn');
+  const guiltText = document.getElementById('guiltText');
+  const behavior = CONFIG.noButtonBehavior;
+  let noAttempts = 0;
+  let yesScale = 1;
+  let noScale = 1;
+
+  function moveNoButtonRandom() {
+    const container = noBtn.closest('.btn-row');
+    const maxX = container.offsetWidth - noBtn.offsetWidth;
+    const maxY = container.offsetHeight - noBtn.offsetHeight;
+    const x = Math.max(0, Math.random() * maxX);
+    const y = Math.max(0, Math.random() * maxY);
+    noBtn.style.position = 'absolute';
+    noBtn.style.left = x + 'px';
+    noBtn.style.top = y + 'px';
+  }
+
+  function handleNoInteraction() {
+    noAttempts++;
+
+    if (behavior.growYesButton) {
+      yesScale = Math.min(yesScale + 0.12, 1.8);
+      yesBtn.style.transform = `scale(${yesScale})`;
+    }
+    if (behavior.shrinkEachClick) {
+      noScale = Math.max(noScale - 0.12, 0.4);
+      noBtn.style.transform = `scale(${noScale})`;
+    }
+    if (behavior.guiltMessages && behavior.guiltMessages.length) {
+      const idx = Math.min(noAttempts - 1, behavior.guiltMessages.length - 1);
+      guiltText.textContent = behavior.guiltMessages[idx];
+    }
+    if (noAttempts >= behavior.teleportAfterAttempts) {
+      moveNoButtonRandom();
+    }
+    if (noAttempts >= behavior.disableAfterAttempts) {
+      noBtn.style.display = 'none';
+      guiltText.textContent = "Guess it's a Yes then! 😄";
+    }
+  }
+
+  if (behavior.dodgeOnHover) {
+    noBtn.addEventListener('mouseenter', () => {
+      if (noAttempts < behavior.disableAfterAttempts) moveNoButtonRandom();
+    });
+  }
+  noBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    handleNoInteraction();
+  });
+</script>
+
+</body>
+</html>
