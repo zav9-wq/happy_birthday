@@ -94,6 +94,7 @@
     color: var(--primary);
     border: 2px solid var(--primary);
     position: relative;
+    transition: transform 0.35s ease, opacity 0.5s ease, left 0.35s ease, top 0.35s ease;
   }
   .btn-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; position: relative; height: 100px; }
 
@@ -136,12 +137,11 @@
 <script>
 const CONFIG = {
   senderName: "Zeehan",
-  recipientName: "EME",
+  recipientName: "Eme",
 
-  birthdayHeading: "Happy Birthday, EMA!🥳🎂",
-  birthdayMessage: "Happy Birthday, my little Eme!I hope your day is as beautiful as your smile and as special as you are to me. May you always have a reason to smile, laugh, and feel loved! 💕",
-
-  questionText: "Will you marry me?🥺💍",
+  birthdayHeading: "Happy Birthday to my prettiest girl, Eme! 🎂💖",
+  birthdayMessage: "I hope your day is as beautiful as your smile and as special as you are to me.❤️You deserve all the happiness in the world. 💐💕❤️💕!",
+  questionText: "Will you marry me,Eme? 💍🥹",
   yesButtonText: "Yes 💖",
   noButtonText: "No",
 
@@ -149,20 +149,20 @@ const CONFIG = {
     dodgeOnHover: true,
     shrinkEachClick: true,
     growYesButton: true,
-    teleportAfterAttempts: 4,
+    teleportAfterAttempts: 3,
     disableAfterAttempts: 6,
     guiltMessages: [
-      "Are you sure?🥺 ",
+      "Are you sure? 🥺",
       "Really? 😢",
       "Try again? 🙈",
       "Please? 🙏",
-      "Think twice𓍢ִ໋🌷͙֒",
       "Pretty please? 🥹"
     ],
   },
 
-  celebrationHeading: "Yay! 🎉",
-  celebrationMessage: "You just made me the happiest person alive! I love you, EMA! 💕",
+  celebrationHeading: "Congratulations! 🎉",
+  celebrationMessage: "my little baby! ❤️ You’ve become  my life story that I never want to end. 📖✨",
+  celebrationMessage: "Not because something special always happens when you’re around, but because even the simplest moments feel special with you. 🫶❤️.Your smile, your voice, your little moments with me they’re the memories I’d replay a thousand times. 🎞️❤️",
 
   confettiColors: ["#ff4d6d", "#ff8fa3", "#ffffff", "#ffb3c6"],
 };
@@ -176,14 +176,14 @@ const CONFIG = {
   <div class="envelope" id="envelope">
     <span class="envelope-heart">💌</span>
   </div>
-  <p class="tap-hint">Im not done yet, i've to tell you something special✨</p>
+  <p class="tap-hint">A little gift for Eme!🎁💗✨✨</p>
 </div>
 
 <!-- Screen 2: Birthday -->
 <div class="screen" id="screen2">
   <h1 class="script" id="birthdayHeading"></h1>
   <p class="message" id="birthdayMessage"></p>
-  <button class="btn btn-yes" onclick="goTo('screen3')">Next 𓍢ִ໋🌷͙֒💕</button>
+  <button class="btn btn-yes" onclick="goTo('screen3')">Next 💕</button>
 </div>
 
 <!-- Screen 3: The Question -->
@@ -200,7 +200,7 @@ const CONFIG = {
 <div class="screen" id="screen4">
   <h1 class="script" id="celebrationHeading"></h1>
   <p class="message" id="celebrationMessage"></p>
-  <div style="font-size:2.5rem;">🫶💖🎉🦋💍🎉💖🫰</div>
+  <div style="font-size:2.5rem;">💖🎉💍🎉💖</div>
 </div>
 
 <script>
@@ -260,51 +260,95 @@ const CONFIG = {
   let yesScale = 1;
   let noScale = 1;
 
+  // Move the "No" button to a random spot anywhere in the viewport,
+  // always kept far from the "Yes" button so an accidental tap
+  // near where "No" used to be won't land on "Yes".
   function moveNoButtonRandom() {
-    const container = noBtn.closest('.btn-row');
-    const maxX = container.offsetWidth - noBtn.offsetWidth;
-    const maxY = container.offsetHeight - noBtn.offsetHeight;
-    const x = Math.max(0, Math.random() * maxX);
-    const y = Math.max(0, Math.random() * maxY);
-    noBtn.style.position = 'absolute';
+    const btnWidth = noBtn.offsetWidth || 90;
+    const btnHeight = noBtn.offsetHeight || 50;
+    const margin = 20;
+    const safeRadius = 140; // minimum distance to keep from Yes button (px)
+    const yesRect = yesBtn.getBoundingClientRect();
+
+    let x, y, tries = 0;
+    do {
+      x = margin + Math.random() * Math.max(0, window.innerWidth - btnWidth - margin * 2);
+      y = margin + Math.random() * Math.max(0, window.innerHeight - btnHeight - margin * 2);
+      const dx = (x + btnWidth / 2) - (yesRect.left + yesRect.width / 2);
+      const dy = (y + btnHeight / 2) - (yesRect.top + yesRect.height / 2);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      tries++;
+      if (dist >= safeRadius || tries > 20) break;
+    } while (true);
+
+    noBtn.style.position = 'fixed';
     noBtn.style.left = x + 'px';
     noBtn.style.top = y + 'px';
+    noBtn.style.zIndex = '20';
   }
 
   function handleNoInteraction() {
-    noAttempts++;
+    // unused — kept as a no-op in case anything still references it
+  }
 
-    if (behavior.growYesButton) {
-      yesScale = Math.min(yesScale + 0.12, 1.8);
-      yesBtn.style.transform = `scale(${yesScale})`;
+  // Auto-move the "No" button on a timer — works with or without
+  // a cursor, so it behaves the same on mobile (tap) and desktop.
+  const maxMoves = 4; // koybar move korbe, tarpor vanish
+  let moveCount = 0;
+
+  function autoMoveNoButton() {
+    moveCount++;
+
+    if (moveCount > maxMoves) {
+      // vanish for good
+      noBtn.style.opacity = '0';
+      noBtn.style.pointerEvents = 'none';
+      setTimeout(() => { noBtn.style.display = 'none'; }, 400);
+      guiltText.textContent = "Guess it's a Yes then! 😄";
+      return;
     }
-    if (behavior.shrinkEachClick) {
-      noScale = Math.max(noScale - 0.12, 0.4);
-      noBtn.style.transform = `scale(${noScale})`;
-    }
+
+    moveNoButtonRandom();
+
+    // fade + shrink a bit each move so it visibly gets weaker
+    const scale = Math.max(1 - moveCount * 0.15, 0.3);
+    const opacity = Math.max(1 - moveCount * 0.15, 0.3);
+    noBtn.style.transform = `scale(${scale})`;
+    noBtn.style.opacity = opacity;
+
     if (behavior.guiltMessages && behavior.guiltMessages.length) {
-      const idx = Math.min(noAttempts - 1, behavior.guiltMessages.length - 1);
+      const idx = Math.min(moveCount - 1, behavior.guiltMessages.length - 1);
       guiltText.textContent = behavior.guiltMessages[idx];
     }
-    if (noAttempts >= behavior.teleportAfterAttempts) {
-      moveNoButtonRandom();
+    if (behavior.growYesButton) {
+      yesScale = Math.min(1 + moveCount * 0.12, 1.8);
+      yesBtn.style.transform = `scale(${yesScale})`;
     }
-    if (noAttempts >= behavior.disableAfterAttempts) {
-      noBtn.style.display = 'none';
-      guiltText.textContent = "Guess it's a Yes then! 😄";
-    }
+
+    // schedule next move (2 seconds later)
+    setTimeout(autoMoveNoButton, 2000);
   }
 
-  if (behavior.dodgeOnHover) {
-    noBtn.addEventListener('mouseenter', () => {
-      if (noAttempts < behavior.disableAfterAttempts) moveNoButtonRandom();
-    });
-  }
+  // Start the sequence once Screen 3 becomes visible
+  const screen3 = document.getElementById('screen3');
+  let autoMoveStarted = false;
+  const screen3Observer = new MutationObserver(() => {
+    if (screen3.classList.contains('active') && !autoMoveStarted) {
+      autoMoveStarted = true;
+      setTimeout(autoMoveNoButton, 1500); // small delay before first move
+    }
+  });
+  screen3Observer.observe(screen3, { attributes: true, attributeFilter: ['class'] });
+
+  // If the recipient still manages to tap "No" before it vanishes,
+  // just treat it the same as a move (doesn't count as a real "no")
   noBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    handleNoInteraction();
   });
 </script>
+
+</body>
+</html>
 
 </body>
 </html>
