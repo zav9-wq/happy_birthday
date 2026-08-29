@@ -115,6 +115,36 @@
     to { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
   }
 
+  /* Sound toggle */
+  .sound-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 30;
+    box-shadow: 0 4px 12px rgba(255,77,109,0.3);
+  }
+
+  /* Typewriter cursor */
+  .typing-cursor::after {
+    content: '|';
+    display: inline-block;
+    margin-left: 2px;
+    color: var(--primary);
+    animation: blink 0.8s step-start infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
   /* Confetti */
   .confetti {
     position: fixed;
@@ -166,6 +196,9 @@ const CONFIG = {
 };
 </script>
 
+<!-- Sound on/off toggle -->
+<button class="sound-toggle" id="soundToggle" title="Sound on/off">🔊</button>
+
 <!-- Floating hearts background -->
 <div id="heartsBg"></div>
 
@@ -181,14 +214,14 @@ const CONFIG = {
 <div class="screen" id="screen2">
   <h1 class="script" id="birthdayHeading"></h1>
   <p class="message" id="birthdayMessage"></p>
-  <button class="btn btn-yes" onclick="goTo('screen3')">Next 💕</button>
+  <button class="btn btn-yes" id="nextBtn" onclick="handleNextClick()" style="opacity:0;pointer-events:none;transition:opacity 0.5s ease;">Next 💕</button>
 </div>
 
 <!-- Screen 3: The Question -->
 <div class="screen" id="screen3">
   <h1 class="script" id="questionText"></h1>
   <div class="btn-row">
-    <button class="btn btn-yes" id="yesBtn" onclick="goTo('screen4')"></button>
+    <button class="btn btn-yes" id="yesBtn" onclick="handleYesClick()"></button>
     <button class="btn btn-no" id="noBtn"></button>
   </div>
   <p class="guilt-text" id="guiltText"></p>
@@ -202,23 +235,285 @@ const CONFIG = {
 </div>
 
 <script>
+  // ============================================
+  // 🔊 SOUND EFFECTS ENGINE (Web Audio API)
+  // Kono external mp3/sound file lage na — sob
+  // sound live "synthesize" kora hocche, tai
+  // offline-eo kaj korbe.
+  // ============================================
+  let audioCtx = null;
+  let soundOn = true;
+
+  function getAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playTone(freq, duration, type, startTime, volume) {
+    if (!soundOn) return;
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    const t0 = ctx.currentTime + (startTime || 0);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(volume || 0.2, t0 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.05);
+  }
+
+  // Envelope / letter opening — realistic paper crinkle
+  // (layered short bursts of filtered noise at random pitches,
+  // mimicking the irregular crackle of real paper being unfolded)
+  function playPaperSound() {
+    if (!soundOn) return;
+    const ctx = getAudioCtx();
+
+    function noiseBurst(startTime, len, freq, q, vol) {
+      const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * len));
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        // slightly biased noise so it "crackles" instead of hissing smoothly
+        const n = Math.random() * 2 - 1;
+        data[i] = n * Math.pow(1 - i / bufferSize, 1.5);
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = freq;
+      filter.Q.value = q;
+      const gain = ctx.createGain();
+      const t0 = ctx.currentTime + startTime;
+      gain.gain.setValueAtTime(vol, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + len);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(t0);
+    }
+
+    // A handful of overlapping crinkle bursts, randomized timing/pitch/length
+    // so each envelope-open sounds slightly different, like real paper.
+    let t = 0;
+    const crinkles = 9 + Math.floor(Math.random() * 4); // 9-12 crackles
+    for (let i = 0; i < crinkles; i++) {
+      const len = 0.03 + Math.random() * 0.07;
+      const freq = 1500 + Math.random() * 3500; // scratchy high-frequency texture
+      const q = 0.5 + Math.random() * 1.5;
+      const vol = 0.15 + Math.random() * 0.15;
+      noiseBurst(t, len, freq, q, vol);
+      t += 0.025 + Math.random() * 0.05;
+    }
+    // one final broader "unfold" swish under the crackles
+    noiseBurst(0, t + 0.15, 900, 0.5, 0.12);
+  }
+
+  // Screen 2 (birthday reveal) — soft romantic bell
+  function playRevealChime() {
+    playTone(523.25, 0.5, 'sine', 0.00, 0.20);   // C5
+    playTone(659.25, 0.5, 'sine', 0.10, 0.18);   // E5
+    playTone(783.99, 0.6, 'sine', 0.20, 0.16);   // G5
+  }
+
+  // "Next" button — gentle soft pop, leading into screen 3
+  function playNextSound() {
+    playTone(700, 0.15, 'sine', 0.00, 0.18);
+    playTone(950, 0.18, 'sine', 0.05, 0.14);
+  }
+
+  // Screen 3 (the question) — light suspenseful shimmer
+  function playQuestionChime() {
+    playTone(880, 0.35, 'sine', 0.00, 0.15);
+    playTone(1046.5, 0.4, 'sine', 0.12, 0.13);
+  }
+
+  // "Yes" button click — bright, distinct click sound
+  function playYesClickSound() {
+    playTone(1200, 0.08, 'square', 0.00, 0.12);
+    playTone(1500, 0.06, 'sine', 0.02, 0.10);
+  }
+
+  // Celebration screen — happy ascending fanfare
+  function playCelebrationSound() {
+    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5]; // C5 E5 G5 C6 E6
+    notes.forEach((f, i) => playTone(f, 0.5, 'triangle', i * 0.11, 0.22));
+  }
+
+  // Typewriter word-tick — realistic mechanical keyboard click.
+  // Real key sounds are actually TWO layered parts:
+  //  1) a very short, high-pitched "click" (the switch snapping)
+  //  2) a slightly lower, slightly-delayed "thock" (the case/plate resonating)
+  // Layering both + randomizing pitch/timing a little per press is what
+  // makes it sound mechanical instead of like a synth beep.
+  function playKeyClickSound() {
+    if (!soundOn) return;
+    const ctx = getAudioCtx();
+
+    function noiseBurst(startTime, len, freqLow, freqHigh, q, vol, filterType) {
+      const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * len));
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2.2);
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = filterType || 'bandpass';
+      filter.frequency.value = freqLow + Math.random() * (freqHigh - freqLow);
+      filter.Q.value = q;
+
+      const gain = ctx.createGain();
+      const t0 = ctx.currentTime + startTime;
+      gain.gain.setValueAtTime(vol, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + len);
+
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(t0);
+    }
+
+    // Slight randomization so not every key sounds identical (realism)
+    const jitter = () => (Math.random() - 0.5) * 0.004;
+
+    // 1) The "click" — sharp, short, high-frequency snap
+    noiseBurst(0 + jitter(), 0.012, 3200, 5500, 2.2, 0.16, 'highpass');
+
+    // 2) The "thock" — lower body resonance, arrives a few ms after the click
+    noiseBurst(0.006 + jitter(), 0.045, 140, 260, 3.5, 0.11, 'bandpass');
+
+    // 3) A tiny mid-frequency tap for extra "plastic" texture
+    noiseBurst(0.003 + jitter(), 0.02, 900, 1400, 1.5, 0.05, 'bandpass');
+  }
+
+  // "No" button dodge — cute playful boop, each time it runs away
+  function playDodgeSound() {
+    if (!soundOn) return;
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(520, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(210, ctx.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.16, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.2);
+  }
+
   // ---------- Populate content from CONFIG ----------
-  document.getElementById('birthdayHeading').textContent = CONFIG.birthdayHeading;
-  document.getElementById('birthdayMessage').textContent = CONFIG.birthdayMessage;
+  // birthdayHeading / birthdayMessage / celebrationHeading / celebrationMessage
+  // are intentionally left empty here — they get typed word-by-word
+  // (see "Word-by-word typewriter effect" below) instead of appearing instantly.
   document.getElementById('questionText').textContent = CONFIG.questionText;
   document.getElementById('yesBtn').textContent = CONFIG.yesButtonText;
   document.getElementById('noBtn').textContent = CONFIG.noButtonText;
-  document.getElementById('celebrationHeading').textContent = CONFIG.celebrationHeading;
-  document.getElementById('celebrationMessage').textContent = CONFIG.celebrationMessage;
+
+  // ============================================
+  // ⌨️ Word-by-word typewriter effect
+  // Wish message gula (birthday + celebration) ekta
+  // ekta word kore type hoye ashbe. Shesh hole
+  // callback call hoy (jemon: Next button dekhano).
+  // ============================================
+  const TYPE_WORD_SPEED = 220; // ms — kotota fast/slow word ashbe, change korte paro
+
+  function typeWords(el, text, speed, onDone) {
+    el.classList.add('typing-cursor');
+    el.textContent = '';
+    const words = text.split(' ');
+    let i = 0;
+    function step() {
+      if (i < words.length) {
+        el.textContent += (i === 0 ? '' : ' ') + words[i];
+        playKeyClickSound();
+        i++;
+        setTimeout(step, speed);
+      } else {
+        el.classList.remove('typing-cursor');
+        if (onDone) onDone();
+      }
+    }
+    step();
+  }
+
+  // Types heading, then message, then runs onAllDone (e.g. reveal Next button)
+  function typeWishScreen(headingEl, headingText, messageEl, messageText, onAllDone) {
+    typeWords(headingEl, headingText, TYPE_WORD_SPEED, () => {
+      setTimeout(() => {
+        typeWords(messageEl, messageText, TYPE_WORD_SPEED, onAllDone);
+      }, 250);
+    });
+  }
+
+  let screen2Typed = false;
+  let screen4Typed = false;
+
+  function playScreen2Typing() {
+    if (screen2Typed) return;
+    screen2Typed = true;
+    const heading = document.getElementById('birthdayHeading');
+    const message = document.getElementById('birthdayMessage');
+    const nextBtn = document.getElementById('nextBtn');
+    typeWishScreen(heading, CONFIG.birthdayHeading, message, CONFIG.birthdayMessage, () => {
+      nextBtn.style.opacity = '1';
+      nextBtn.style.pointerEvents = 'auto';
+    });
+  }
+
+  function playScreen4Typing() {
+    if (screen4Typed) return;
+    screen4Typed = true;
+    const heading = document.getElementById('celebrationHeading');
+    const message = document.getElementById('celebrationMessage');
+    typeWishScreen(heading, CONFIG.celebrationHeading, message, CONFIG.celebrationMessage);
+  }
 
   // ---------- Screen navigation ----------
   function goTo(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    if (id === 'screen2' || id === 'screen4') launchConfetti();
+    if (id === 'screen2') { launchConfetti(); playRevealChime(); playScreen2Typing(); }
+    if (id === 'screen3') { playQuestionChime(); }
+    if (id === 'screen4') { launchConfetti(); playCelebrationSound(); playScreen4Typing(); }
   }
 
-  document.getElementById('envelope').addEventListener('click', () => goTo('screen2'));
+  // ---------- Sound on/off toggle ----------
+  const soundToggleBtn = document.getElementById('soundToggle');
+  soundToggleBtn.addEventListener('click', () => {
+    soundOn = !soundOn;
+    soundToggleBtn.textContent = soundOn ? '🔊' : '🔇';
+    if (soundOn) getAudioCtx(); // unlock/resume audio on this tap
+  });
+
+  document.getElementById('envelope').addEventListener('click', () => {
+    playPaperSound();          // 💌 letter/envelope opening sound
+    setTimeout(() => goTo('screen2'), 150); // let the paper sound start before the screen change
+  });
+
+  // "Next" (birthday -> question) — soft pop sound, then transition
+  function handleNextClick() {
+    playNextSound();
+    setTimeout(() => goTo('screen3'), 120);
+  }
+
+  // "Yes" button — distinct click sound, then celebration
+  function handleYesClick() {
+    playYesClickSound();
+    setTimeout(() => goTo('screen4'), 150);
+  }
 
   // ---------- Floating hearts background ----------
   function startFloatingHearts() {
@@ -307,6 +602,7 @@ const CONFIG = {
     }
 
     moveNoButtonRandom();
+    playDodgeSound();
 
     // fade + shrink a bit each move so it visibly gets weaker
     const scale = Math.max(1 - moveCount * 0.15, 0.3);
